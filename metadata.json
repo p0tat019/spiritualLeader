@@ -1,0 +1,7 @@
+{
+  "name": "영성 지도자 커뮤니티 (Spiritual Leaders Community)",
+  "description": "현대 사회의 영적 성장을 이끄는 지도자들을 위한 공식 플랫폼입니다. 투명한 운영과 철학적인 가치를 공유합니다.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
