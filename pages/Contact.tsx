@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FORM_CONFIG } from '../config/formConfig';
 
 const Contact: React.FC = () => {
@@ -7,13 +7,43 @@ const Contact: React.FC = () => {
     name: '',
     email: '',
     category: 'general',
-    message: ''
+    message: '',
+    _gotcha: '' // Honeypot field
   });
 
+  // Math CAPTCHA State
+  const [captcha, setCaptcha] = useState({ num1: 0, num2: 0, userAnswer: '' });
   const [status, setStatus] = useState<'IDLE' | 'SUBMITTING' | 'SUCCESS' | 'ERROR'>('IDLE');
+
+  // Generate new math challenge on mount
+  const generateCaptcha = () => {
+    setCaptcha({
+      num1: Math.floor(Math.random() * 10) + 1,
+      num2: Math.floor(Math.random() * 10) + 1,
+      userAnswer: ''
+    });
+  };
+
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. Honeypot check: If _gotcha is filled, it's likely a bot
+    if (formData._gotcha) {
+      console.warn("Bot detected via honeypot.");
+      setStatus('SUCCESS'); // Silently fail for bots
+      return;
+    }
+
+    // 2. Math Captcha check
+    if (parseInt(captcha.userAnswer) !== (captcha.num1 + captcha.num2)) {
+      alert("보안 질문의 답이 틀렸습니다. 다시 확인해 주세요.");
+      return;
+    }
+
     setStatus('SUBMITTING');
 
     try {
@@ -34,9 +64,11 @@ const Contact: React.FC = () => {
 
       if (response.ok) {
         setStatus('SUCCESS');
-        setFormData({ name: '', email: '', category: 'general', message: '' });
-        // 5초 후 다시 입력 가능하도록 상태 변경
-        setTimeout(() => setStatus('IDLE'), 5000);
+        setFormData({ name: '', email: '', category: 'general', message: '', _gotcha: '' });
+        setTimeout(() => {
+          setStatus('IDLE');
+          generateCaptcha();
+        }, 5000);
       } else {
         throw new Error('전송 실패');
       }
@@ -62,7 +94,7 @@ const Contact: React.FC = () => {
               <h3 className="text-xl font-bold text-emerald-800 mb-2">메시지가 전송되었습니다.</h3>
               <p className="text-emerald-600 mb-4">보내주신 소중한 문의에 대해<br/>최대한 빨리 답변 드리겠습니다.</p>
               <button 
-                onClick={() => setStatus('IDLE')}
+                onClick={() => { setStatus('IDLE'); generateCaptcha(); }}
                 className="text-sm font-bold text-emerald-700 underline"
               >
                 추가 문의하기
@@ -70,6 +102,18 @@ const Contact: React.FC = () => {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Honeypot field: Hidden from humans */}
+              <div className="hidden" aria-hidden="true">
+                <input
+                  type="text"
+                  name="_gotcha"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={formData._gotcha}
+                  onChange={e => setFormData({...formData, _gotcha: e.target.value})}
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-bold text-stone-700 mb-2">성함</label>
@@ -113,7 +157,7 @@ const Contact: React.FC = () => {
               <div>
                 <label className="block text-sm font-bold text-stone-700 mb-2">내용</label>
                 <textarea
-                  rows={5}
+                  rows={4}
                   required
                   disabled={status === 'SUBMITTING'}
                   value={formData.message}
@@ -121,6 +165,22 @@ const Contact: React.FC = () => {
                   placeholder="문의하실 내용을 상세히 적어주세요."
                   className="w-full border border-stone-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-stone-50"
                 ></textarea>
+              </div>
+
+              {/* Math Captcha Verification */}
+              <div className="bg-stone-50 p-4 rounded-xl border border-stone-200">
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">보안 질문 (자동 제출 방지)</label>
+                <div className="flex items-center gap-4">
+                  <span className="text-lg font-bold text-stone-700">{captcha.num1} + {captcha.num2} = </span>
+                  <input
+                    type="number"
+                    required
+                    value={captcha.userAnswer}
+                    onChange={e => setCaptcha({...captcha, userAnswer: e.target.value})}
+                    placeholder="정답 입력"
+                    className="w-24 border border-stone-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
               </div>
               
               {status === 'ERROR' && (
@@ -142,7 +202,7 @@ const Contact: React.FC = () => {
           )}
         </div>
 
-        {/* Info & Map */}
+        {/* Info & Map Container */}
         <div>
           <h2 className="text-2xl font-bold mb-8 text-stone-800">찾아오시는 길</h2>
           <div className="bg-stone-200 h-80 rounded-3xl mb-8 relative overflow-hidden group shadow-inner">
@@ -157,21 +217,21 @@ const Contact: React.FC = () => {
           
           <div className="space-y-6">
             <div className="flex gap-4 items-start">
-              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 text-emerald-700">📍</div>
+              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 text-emerald-700 text-xl">📍</div>
               <div>
                 <h4 className="font-bold text-stone-800">주소</h4>
                 <p className="text-stone-600">서울특별시 서초구 어딘가로 123, 가나빌딩 4층</p>
               </div>
             </div>
             <div className="flex gap-4 items-start">
-              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 text-emerald-700">📞</div>
+              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 text-emerald-700 text-xl">📞</div>
               <div>
                 <h4 className="font-bold text-stone-800">전화번호</h4>
                 <p className="text-stone-600">02-1234-5678 (평일 09:00 - 18:00)</p>
               </div>
             </div>
             <div className="flex gap-4 items-start">
-              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 text-emerald-700">✉️</div>
+              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 text-emerald-700 text-xl">✉️</div>
               <div>
                 <h4 className="font-bold text-stone-800">이메일</h4>
                 <p className="text-stone-600">contact@spiritual-leaders.kr</p>
